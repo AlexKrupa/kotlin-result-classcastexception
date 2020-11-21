@@ -1,36 +1,28 @@
 package com.alexkrupa.kotlinresultclasscastexception
 
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.*
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
-import org.junit.Before
 import org.junit.Test
 
 class GetValue {
 
+    @Suppress("RedundantSuspendModifier")
     suspend operator fun invoke(): Result<Unit> {
-        delay(0)
-        return Result.failure(Exception("Bleh"))
+        return Result.success(Unit)
     }
 }
 
-class ViewModel(private val getValue: GetValue) : androidx.lifecycle.ViewModel() {
+class ViewModel(private val getValue: GetValue) {
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
 
     fun onClickFailure() {
-        viewModelScope.launch {
-            getValue().onSuccess { Unit }
-        }
+        scope.launch { getValue() }
     }
 
     fun onClickFine() {
-        viewModelScope.launch {
-            getValue.invoke().onSuccess { Unit }
-        }
+        scope.launch { getValue.invoke() }
     }
 }
 
@@ -38,11 +30,6 @@ class KotlinResultTest {
 
     private val repository = GetValue()
     private val viewModel = ViewModel(repository)
-
-    @Before
-    fun setUp() {
-        Dispatchers.setMain(Dispatchers.Unconfined)
-    }
 
     @Test
     fun verifyErrorOccurs() = runBlocking {
