@@ -1,0 +1,2 @@
+rootProject.name = "KotlinResultClassCastException"
+include ':app'
