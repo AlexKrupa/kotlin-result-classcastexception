@@ -1,51 +1,65 @@
 package com.alexkrupa.kotlinresultclasscastexception
 
-import kotlinx.coroutines.*
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
+import org.junit.Before
 import org.junit.Test
 
+class GetValue {
 
-
-interface Repository {
-    suspend fun getValue(): Result<String>
-}
-
-class RepositoryImpl : Repository {
-
-    override suspend fun getValue(): Result<String> {
+    suspend operator fun invoke(): Result<Unit> {
         delay(0)
-        return Result.success("Value")
+        return Result.failure(Exception("Bleh"))
     }
 }
 
-class ViewModel(private val repository: Repository) {
+class ViewModel(private val getValue: GetValue) : androidx.lifecycle.ViewModel() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    fun onClickFailure() {
+        viewModelScope.launch {
+            getValue().onSuccess { Unit }
+        }
+    }
 
-    fun onClick() {
-        scope.launch {
-            repository.getValue()
-                .onSuccess { Unit }
+    fun onClickFine() {
+        viewModelScope.launch {
+            getValue.invoke().onSuccess { Unit }
         }
     }
 }
 
 class KotlinResultTest {
 
-    private val repository = RepositoryImpl()
+    private val repository = GetValue()
     private val viewModel = ViewModel(repository)
 
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(Dispatchers.Unconfined)
+    }
+
     @Test
-    fun classCastExceptionOccurs() = runBlocking {
+    fun verifyErrorOccurs() = runBlocking {
         try {
-            viewModel.onClick()
-            fail("Expected ClassCastException thrown.")
-        } catch (exception: ClassCastException) {
-            assertTrue(
-                exception.message!!
-                    .startsWith("class kotlin.Result cannot be cast to class kotlin.Unit")
-            )
+            viewModel.onClickFailure()
+            fail("Expected VerifyError thrown.")
+        } catch (error: VerifyError) {
+            assertTrue(error.message!!.startsWith("Bad type on operand stack"))
+        }
+    }
+
+    @Test
+    fun worksJustFine() = runBlocking {
+        try {
+            viewModel.onClickFine()
+        } catch (error: Error) {
+            fail("Expected no errors but got: $error")
         }
     }
 }
